@@ -1,0 +1,25 @@
+/*
+  O ESLint é uma ferramenta destinada a Linting, uma forma de validar se seu código está seguindo padrões estipulados pelos criadores do projeto.
+
+  yarn add eslint // instalação da dependência.
+
+  npx eslint --init // permite a criação de sua própria configuração.
+
+  yarn add @rocketseat/eslint-config // instala configurações pré-existentes, usadas pela Rocketseat.
+
+  Então, vamos criar um arquivo ".eslintrc.js".
+
+  Quando quisermos corrigir todos os erros existentes, que são possíveis de correção automática, rodar:
+
+  npx eslint src --ext .ts, .tsx --fix
+
+  - Documentação: 
+
+  https://eslint.org/docs/rules/
+
+  https://eslint.org/docs/user-guide/getting-started
+*/
+
+{
+  "extends": "@rocketseat/eslint-config/react"
+}
