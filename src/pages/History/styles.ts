@@ -60,3 +60,42 @@ export const HistoryList = styled.div`
     }
   }
 `
+
+/**
+ * 1) Mapeando cada cor com um RGB correspondente.
+ *
+ * 2) Ao criar esse objeto, o TypeScript lê o mesmo e entende que podemos ter uma chave "yellow", "green" e "red".
+ *
+ * - O valor dessas propriedades é um texto, que seria passível de mudança.
+ *
+ * - Assim, precisamos dizer ao TypeScript que o texto SEMPRE será um desses três e que não pode mudar.
+ *
+ * - Então, passamos o "as const", o que torna os valores da varíavel "read-only" e associa as chaves diretamente com seus valores.
+ *
+ * - Ou seja, 'yellow' SEMPRE será correspondente a 'yellow-500', etc.
+ */
+const STATUS_COLORS = {
+  yellow: 'yellow-500',
+  green: 'green-500',
+  red: 'red-500',
+  // gray: 'gray-500',
+} as const
+
+interface StatusProps {
+  // "As cores disponíveis são as chaves (keys) desse objeto acima".
+  statusColor: keyof typeof STATUS_COLORS
+}
+
+export const Status = styled.span<StatusProps>`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+
+  &::before {
+    content: '';
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    background: ${(props) => props.theme[STATUS_COLORS[props.statusColor]]};
+  }
+`
