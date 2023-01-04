@@ -3,6 +3,18 @@ import { Play } from 'phosphor-react'
 // Hooks são funções que possuem o prefixo, "use" e acoplam uma funcionalidade em um componente existente (ex.: useState, useEffect, useReducer, etc.).
 import { useForm } from 'react-hook-form'
 
+/**
+ * - Zod é uma biblioteca de validação que possui integração com TypeScript.
+ * Em relação a semelhantes, possui um pouco mais de intellisense onde, por exemplo, evita validar campos que não existem.
+ *
+ * - "hookform/resolvers" é uma biblioteca usada para integrar o Zod com o react-hook-form.
+ *
+ * - O Zod não possui um export default; ou seja, eu teria que importar cada função do Zod separadamente.
+ * Ou eu posso usar uma técnica para tal: "importando tudo e dando o nome para isso aqui".
+ *  */
+import * as zod from 'zod'
+import { zodResolver } from '@hookform/resolvers/zod'
+
 import {
   CountdownContainer,
   FormContainer,
@@ -46,18 +58,46 @@ import {
  *
  */
 
+/**
+ * Schema de validação, onde eu digo "de que forma eu quero validar os dados nos meus inputs", seguindo um formato.
+ *
+ * - Por exemplo:
+ *
+ * "minha task é obrigatória e deve possuir, pelo menos, cinco caracteres."
+ * "meu MinutesAmountInput precisa ser múltiplo de cinco, ter o valor máximo e mínimo como x e y."
+ *
+ * No caso abaixo, em handleCreateNewCycle, eu estou validando um objeto; portanto, devo usar o método object.
+ **/
+const newCycleFormValidationSchema = zod.object({
+  // A validação do task será: "eu quero que este campo seja, obrigatoriamente, uma string com um caracter no mínimo".
+  // E, se a pessoa não informar esse caractere, exibe a mensagem 'Informe a tarefa'. Ou seja, retorna uma mensagem, quando o valor do campo for inválido.
+  task: zod.string().min(1, 'Informe a tarefa'),
+  minutesAmount: zod
+    .number()
+    .min(5, 'O ciclo precisa ser de, no mínimo, 5 minutos')
+    .max(60, 'O ciclo precisa ser de, no máximo, 60 minutos'),
+})
+
 export function Home() {
   // const [task, setTask] = useState('')
 
   // Retorna um objeto, com vários funções e variáveis disponíveis; portanto, destruturação é útil.
   // "useForm" cria um novo formulário em minha aplicação. "Register" é um método que irá adicionar um input ao nosso formulário, dizendo quais campos terei no mesmo.
-  const { register, handleSubmit, watch } = useForm()
+  // Na função "useForm()", iremos passar um objeto de configuração; a intenção é "utilizar um resolver de validação, o zodResolver".
+  const { register, handleSubmit, watch, formState } = useForm({
+    resolver: zodResolver(newCycleFormValidationSchema), // passo o schema como o formato a ser utilizado na validação.
+
+    // Então, o que ocorre é o seguinte: se a validação funcionar, tudo ocorrerá normalmente. Porém, se houver erro, a execução será interrompida.
+  })
 
   function handleCreateNewCycle(data: any) {
     console.log(data)
   }
 
-  // Consigo visualizar o valor de um campo específico, em tempo real.
+  // formState permite retornar o estado do formulário, inclusive os erros quando existem.
+  console.log(formState.errors)
+
+  // Ao monitorar um campo específico, consigo visualizar o valor do mesmo em tempo real. Isso transforma nosso formulário em controlled!
   const task = watch('task')
   const isSubmitDisabled = !task
 
@@ -105,7 +145,6 @@ export function Home() {
             placeholder="00"
             step={5}
             min={5}
-            max={60}
             {...register('minutesAmount', { valueAsNumber: true })}
           />
 
