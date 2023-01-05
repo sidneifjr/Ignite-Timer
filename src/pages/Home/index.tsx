@@ -78,19 +78,40 @@ const newCycleFormValidationSchema = zod.object({
     .max(60, 'O ciclo precisa ser de, no máximo, 60 minutos'),
 })
 
+/**
+ * É possível obter as tipagens de um objeto, através da função 'infer' disponibilizada pelo TypeScript.
+ * Quando eu digo "Inferir", estou automatizando um processo de falar qual é a tipagem de algo.
+ *
+ * Porém, é importante notar que não posso utilizar uma variável JavaScript dentro do TypeScript. Ou seja, é necessário converter para algo específico ao TypeScript.
+ * Sempre que eu preciso referenciar uma variável JavaScript dentro do TypeScript, eu preciso usar o typeof antes dela.
+ *
+ * Assim, o processo de inclusão de novos campos é automatizado: não é necessário definir-los manualmente em uma interface.
+ */
+type NewCycleFormData = zod.infer<typeof newCycleFormValidationSchema>
+
 export function Home() {
   // const [task, setTask] = useState('')
 
   // Retorna um objeto, com vários funções e variáveis disponíveis; portanto, destruturação é útil.
   // "useForm" cria um novo formulário em minha aplicação. "Register" é um método que irá adicionar um input ao nosso formulário, dizendo quais campos terei no mesmo.
   // Na função "useForm()", iremos passar um objeto de configuração; a intenção é "utilizar um resolver de validação, o zodResolver".
-  const { register, handleSubmit, watch, formState } = useForm({
-    resolver: zodResolver(newCycleFormValidationSchema), // passo o schema como o formato a ser utilizado na validação.
+  const { register, handleSubmit, watch, formState } =
+    useForm<NewCycleFormData>({
+      /**
+       * Passo o schema como o formato a ser utilizado na validação.
+       * Então, se a validação funcionar, tudo ocorrerá normalmente. Porém, se houver algum erro, a execução será interrompida.
+       */
+      resolver: zodResolver(newCycleFormValidationSchema),
 
-    // Então, o que ocorre é o seguinte: se a validação funcionar, tudo ocorrerá normalmente. Porém, se houver erro, a execução será interrompida.
-  })
+      // Definindo o valor inicial de cada campo.
+      // Ao usar um generic em "useForm", podemos fazer com que o intellisense da ferramenta reconheça os valores existentes (ao apertar CTRL + espaço).
+      defaultValues: {
+        task: '',
+        minutesAmount: 0,
+      },
+    })
 
-  function handleCreateNewCycle(data: any) {
+  function handleCreateNewCycle(data: INewCycleFormData) {
     console.log(data)
   }
 
