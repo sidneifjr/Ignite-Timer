@@ -95,7 +95,7 @@ export function Home() {
   // Retorna um objeto, com vários funções e variáveis disponíveis; portanto, destruturação é útil.
   // "useForm" cria um novo formulário em minha aplicação. "Register" é um método que irá adicionar um input ao nosso formulário, dizendo quais campos terei no mesmo.
   // Na função "useForm()", iremos passar um objeto de configuração; a intenção é "utilizar um resolver de validação, o zodResolver".
-  const { register, handleSubmit, watch, formState } =
+  const { register, handleSubmit, watch, formState, reset } =
     useForm<NewCycleFormData>({
       /**
        * Passo o schema como o formato a ser utilizado na validação.
@@ -111,8 +111,11 @@ export function Home() {
       },
     })
 
-  function handleCreateNewCycle(data: INewCycleFormData) {
+  function handleCreateNewCycle(data: NewCycleFormData) {
     console.log(data)
+
+    // Automaticamente, limpa os campos para o valor original, presente em defaultValues.
+    reset()
   }
 
   // formState permite retornar o estado do formulário, inclusive os erros quando existem.
