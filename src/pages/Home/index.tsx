@@ -24,6 +24,7 @@ import {
   StartCountdownButton,
   TaskInput,
 } from './styles'
+import { useState } from 'react'
 
 /**
  * Ao tratar de formulários no React (e qualquer outro cenário que envolve input do usuário), temos dois modelos de trabalho em nossa aplicação:
@@ -89,8 +90,19 @@ const newCycleFormValidationSchema = zod.object({
  */
 type NewCycleFormData = zod.infer<typeof newCycleFormValidationSchema>
 
+interface ICycle {
+  id: string // necessário para representar cada ciclo unicamente.
+  task: string
+  minutesAmount: number
+}
+
 export function Home() {
-  // const [task, setTask] = useState('')
+  // Lembrando de definir um valor inicial, com o mesmo tipo que pretendo usar!
+  const [cycles, setCycles] = useState<ICycle[]>([])
+
+  // Armazenando o id do ciclo ativo, em um estado.
+  // É importante considerar que, ao iniciar a aplicação pela primeira vez, eu posso ter nenhum ciclo cadastrado. Ou seja, o id do ciclo ativo pode ser nulo.
+  const [activeCycleId, setActiveCycleId] = useState<string | null>(null)
 
   // Retorna um objeto, com vários funções e variáveis disponíveis; portanto, destruturação é útil.
   // "useForm" cria um novo formulário em minha aplicação. "Register" é um método que irá adicionar um input ao nosso formulário, dizendo quais campos terei no mesmo.
@@ -114,12 +126,42 @@ export function Home() {
   function handleCreateNewCycle(data: NewCycleFormData) {
     console.log(data)
 
+    // Obtém a data atual, convertida para millisegundos. Assim, é humanamente impossível ocorrer IDs repetidos.
+    const id = String(new Date().getTime())
+
+    const newCycle: ICycle = {
+      id, // é o mesmo que definir "id: id"
+      task: data.task,
+      minutesAmount: data.minutesAmount,
+    }
+
+    /**
+     * Para copiar todos os ciclos que já possuo e adicionando um novo ciclo, ao final:
+     * setCycles([...cycles, newCycle])
+     *
+     * Porém, uma regra associada a closures, no React: toda vez que eu estou alterando um estado e esse estado depende da sua versão ou informação anterior,
+     * é uma boa idéia que tal valor seja setado em formato de arrow function.
+     *
+     * Assim: eu pego o estado atual da minha variável de ciclos, copio o estado atual e adiciono o novo ciclo no final.
+     **/
+    setCycles((state) => [...state, newCycle])
+    setActiveCycleId(id) // armazena o id, do ciclo ativo.
+
     // Automaticamente, limpa os campos para o valor original, presente em defaultValues.
     reset()
   }
 
+  // Exibindo, em tela, qual o ciclo ativo; com base no id do ciclo ativo, percorrer todos os ciclos que tenho e retornar qual possui o mesmo id do ciclo ativo.
+  // Ou seja: a variável percorre o vetor de ciclos, procurando por um ciclo em que o ID do mesmo seja igual ao ID do ciclo ativo.
+  const activeCycle = cycles.find((cycle) => cycle.id === activeCycleId)
+
+  // É interessante notar que, ao realizarmos um console.log em nossa aplicação, o log é exibido duas vezes:
+  // 1 é proveniente do nosso arquivo e o outro é proveniente do "react_devtools_backend.js".
+  // Isso ocorre SOMENTE em desenvolvimento, não afeta produção; é relacionado ao StrictMode no React, definido no main.tsx.
+  console.log(activeCycle)
+
   // formState permite retornar o estado do formulário, inclusive os erros quando existem.
-  console.log(formState.errors)
+  // console.log(formState.errors)
 
   // Ao monitorar um campo específico, consigo visualizar o valor do mesmo em tempo real. Isso transforma nosso formulário em controlled!
   const task = watch('task')
