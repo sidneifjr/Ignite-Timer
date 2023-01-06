@@ -104,6 +104,9 @@ export function Home() {
   // É importante considerar que, ao iniciar a aplicação pela primeira vez, eu posso ter nenhum ciclo cadastrado. Ou seja, o id do ciclo ativo pode ser nulo.
   const [activeCycleId, setActiveCycleId] = useState<string | null>(null)
 
+  // Armazena a quantidade de segundos que se passaram, desde que o ciclo foi criado.
+  const [amountSecondsPassed, setAmountSecondsPassed] = useState(0)
+
   // Retorna um objeto, com vários funções e variáveis disponíveis; portanto, destruturação é útil.
   // "useForm" cria um novo formulário em minha aplicação. "Register" é um método que irá adicionar um input ao nosso formulário, dizendo quais campos terei no mesmo.
   // Na função "useForm()", iremos passar um objeto de configuração; a intenção é "utilizar um resolver de validação, o zodResolver".
@@ -159,6 +162,25 @@ export function Home() {
   // 1 é proveniente do nosso arquivo e o outro é proveniente do "react_devtools_backend.js".
   // Isso ocorre SOMENTE em desenvolvimento, não afeta produção; é relacionado ao StrictMode no React, definido no main.tsx.
   console.log(activeCycle)
+
+  // Converte o número de minutos em meu ciclo, inserido pelo usuário, para segundos.
+  const totalSeconds = activeCycle ? activeCycle.minutesAmount * 60 : 0
+
+  // Quantos segundos já passaram.
+  const currentSeconds = activeCycle ? totalSeconds - amountSecondsPassed : 0
+
+  // Calculando, a partir do total de segundos, quantos minutos eu tenho.
+  // Caso retorne um número quebrado (por exemplo, inseri 25 min e já se passou 1s, antes de eu pausar.), aproxima para baixo.
+  const minutesAmount = Math.floor(currentSeconds / 60)
+
+  // "Ao dividir todos os segundos que tenho, por 60, quantos segundos sobram, que não cabem em mais uma divisão?"
+  const secondsAmount = currentSeconds % 60
+
+  // Facilitando a exibição dos números.
+  // padStart é um método que preenche aquela string com algum caracter, de forma a atingir um tamanho específico.
+  // Eu quero que a variável de minutos sempre possua dois caracteres.
+  const minutes = String(minutesAmount).padStart(2, '0')
+  const seconds = String(secondsAmount).padStart(2, '0')
 
   // formState permite retornar o estado do formulário, inclusive os erros quando existem.
   // console.log(formState.errors)
@@ -218,11 +240,17 @@ export function Home() {
         </FormContainer>
 
         <CountdownContainer>
-          <span>0</span>
-          <span>0</span>
+          <span>
+            {/* Pegando a primeira letra da string */}
+            {minutes[0]}
+          </span>
+          <span>{minutes[1]}</span>
           <Separator>:</Separator>
-          <span>0</span>
-          <span>0</span>
+          <span>
+            {/* Pegando a primeira letra da string */}
+            {seconds[0]}
+          </span>
+          <span>{seconds[1]}</span>
         </CountdownContainer>
 
         {/* O "!task.length" (ou task === ') indica "somente quando o input estiver vazio". */}
