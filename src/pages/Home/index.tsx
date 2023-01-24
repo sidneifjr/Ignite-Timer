@@ -24,7 +24,9 @@ import {
   StartCountdownButton,
   TaskInput,
 } from './styles'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+
+import { differenceInSeconds } from 'date-fns'
 
 /**
  * Ao tratar de formulários no React (e qualquer outro cenário que envolve input do usuário), temos dois modelos de trabalho em nossa aplicação:
@@ -90,10 +92,26 @@ const newCycleFormValidationSchema = zod.object({
  */
 type NewCycleFormData = zod.infer<typeof newCycleFormValidationSchema>
 
+/*
+ O valor que você define como o intervalo de tempo em um setInterval ou setTimeout não é preciso: é apenas uma estimativa.
+
+ Os seguintes fatores podem interferir:
+
+ - Aba do navegador em background;
+ - Lentidão do sistema;
+
+ Ou seja: 1s não é o valor exato. É perfeitamente possível que o timer não fique correto.
+
+ Portanto, outra forma de tratar do countdown: 
+
+ Ao criar o ciclo, onde criamos nossa interface Cycle (com id, task e minutesAmount), podemos adicionar um startDate.
+ Assim, temos a data em que ele se tornou ativo e, com base nessa data, podemos saber quanto tempo passou.
+*/
 interface ICycle {
   id: string // necessário para representar cada ciclo unicamente.
   task: string
   minutesAmount: number
+  startDate: Date // nativo do JavaScript!
 }
 
 export function Home() {
@@ -126,6 +144,28 @@ export function Home() {
       },
     })
 
+  // Exibindo, em tela, qual o ciclo ativo; com base no id do ciclo ativo, percorrer todos os ciclos que tenho e retornar qual possui o mesmo id do ciclo ativo.
+  // Ou seja: a variável percorre o vetor de ciclos, procurando por um ciclo em que o ID do mesmo seja igual ao ID do ciclo ativo.
+  const activeCycle = cycles.find((cycle) => cycle.id === activeCycleId)
+
+  /**
+   * Criando o intervalo, para o intervalo de início e fim.
+   *
+   * O activeCycle é uma variável externa ao useEffect. Sempre que utilizarmos uma variável externa, obrigatoriamente devemos incluí-la como uma dependência do useEffect.
+   * Isso implica que: toda vez que a variável activeCycle muda, o código será executado novamente.
+   *
+   * Da forma atual, funciona, mas adicionar um novo ciclo após um pré-existente irá causar bugs.
+   */
+  useEffect(() => {
+    if (activeCycle) {
+      setInterval(() => {
+        setAmountSecondsPassed(
+          differenceInSeconds(new Date(), activeCycle.startDate),
+        )
+      }, 1000)
+    }
+  }, [activeCycle])
+
   function handleCreateNewCycle(data: NewCycleFormData) {
     console.log(data)
 
@@ -136,6 +176,7 @@ export function Home() {
       id, // é o mesmo que definir "id: id"
       task: data.task,
       minutesAmount: data.minutesAmount,
+      startDate: new Date(),
     }
 
     /**
@@ -153,10 +194,6 @@ export function Home() {
     // Automaticamente, limpa os campos para o valor original, presente em defaultValues.
     reset()
   }
-
-  // Exibindo, em tela, qual o ciclo ativo; com base no id do ciclo ativo, percorrer todos os ciclos que tenho e retornar qual possui o mesmo id do ciclo ativo.
-  // Ou seja: a variável percorre o vetor de ciclos, procurando por um ciclo em que o ID do mesmo seja igual ao ID do ciclo ativo.
-  const activeCycle = cycles.find((cycle) => cycle.id === activeCycleId)
 
   // É interessante notar que, ao realizarmos um console.log em nossa aplicação, o log é exibido duas vezes:
   // 1 é proveniente do nosso arquivo e o outro é proveniente do "react_devtools_backend.js".
