@@ -78,7 +78,7 @@ const newCycleFormValidationSchema = zod.object({
   task: zod.string().min(1, 'Informe a tarefa'),
   minutesAmount: zod
     .number()
-    .min(5, 'O ciclo precisa ser de, no mínimo, 5 minutos')
+    .min(1, 'O ciclo precisa ser de, no mínimo, 5 minutos')
     .max(60, 'O ciclo precisa ser de, no máximo, 60 minutos'),
 })
 
@@ -114,6 +114,7 @@ interface ICycle {
   minutesAmount: number
   startDate: Date // Date é um método nativo do JavaScript!
   interruptedDate?: Date
+  finishedDate?: Date
 }
 
 export function Home() {
@@ -150,6 +151,9 @@ export function Home() {
   // Ou seja: a variável percorre o vetor de ciclos, procurando por um ciclo em que o ID do mesmo seja igual ao ID do ciclo ativo.
   const activeCycle = cycles.find((cycle) => cycle.id === activeCycleId)
 
+  // Converte o número de minutos em meu ciclo, inserido pelo usuário, para segundos.
+  const totalSeconds = activeCycle ? activeCycle.minutesAmount * 60 : 0
+
   /**
    * Criando o intervalo, para o intervalo de início e fim.
    *
@@ -163,9 +167,31 @@ export function Home() {
 
     if (activeCycle) {
       interval = setInterval(() => {
-        setAmountSecondsPassed(
-          differenceInSeconds(new Date(), activeCycle.startDate),
+        const secondsDifference = differenceInSeconds(
+          new Date(),
+          activeCycle.startDate,
         )
+
+        // Digo que o ciclo foi encerrado.
+        if (secondsDifference >= totalSeconds) {
+          setCycles((state) =>
+            state.map((cycle) => {
+              if (cycle.id === activeCycleId) {
+                return { ...cycle, finishedDate: new Date() }
+              } else {
+                return cycle
+              }
+            }),
+          )
+
+          setAmountSecondsPassed(totalSeconds)
+
+          // Removendo o intervalo, para que a contagem seja interrompida.
+          clearInterval(interval)
+        } else {
+          // Só atualizo o total de segundos que passou, se eu ainda não "completei o total de segundos"; ou seja, se eu não encerrei um ciclo.
+          setAmountSecondsPassed(secondsDifference)
+        }
       }, 1000)
     }
 
@@ -176,7 +202,7 @@ export function Home() {
     return () => {
       clearInterval(interval)
     }
-  }, [activeCycle])
+  }, [activeCycle, totalSeconds, activeCycleId])
 
   function handleCreateNewCycle(data: NewCycleFormData) {
     console.log(data)
@@ -221,8 +247,8 @@ export function Home() {
      *
      * É importante lembrar que nunca podemos alterar uma informação, sem seguir os princípios da imutabilidade.
      */
-    setCycles(
-      cycles.map((cycle) => {
+    setCycles((state) =>
+      state.map((cycle) => {
         if (cycle.id === activeCycleId) {
           return { ...cycle, interruptedDate: new Date() }
         } else {
@@ -238,9 +264,6 @@ export function Home() {
   // 1 é proveniente do nosso arquivo e o outro é proveniente do "react_devtools_backend.js".
   // Isso ocorre SOMENTE em desenvolvimento, não afeta produção; é relacionado ao StrictMode no React, definido no main.tsx.
   console.log(activeCycle)
-
-  // Converte o número de minutos em meu ciclo, inserido pelo usuário, para segundos.
-  const totalSeconds = activeCycle ? activeCycle.minutesAmount * 60 : 0
 
   // Quantos segundos já passaram.
   const currentSeconds = activeCycle ? totalSeconds - amountSecondsPassed : 0
@@ -315,7 +338,7 @@ export function Home() {
             type="number"
             placeholder="00"
             step={5}
-            min={5}
+            min={1}
             {...register('minutesAmount', { valueAsNumber: true })}
             disabled={!!activeCycle}
           />
