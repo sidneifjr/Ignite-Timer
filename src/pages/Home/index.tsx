@@ -1,4 +1,4 @@
-import { Play } from 'phosphor-react'
+import { HandPalm, Play } from 'phosphor-react'
 
 // Hooks são funções que possuem o prefixo, "use" e acoplam uma funcionalidade em um componente existente (ex.: useState, useEffect, useReducer, etc.).
 import { useForm } from 'react-hook-form'
@@ -22,6 +22,7 @@ import {
   MinutesAmountInput,
   Separator,
   StartCountdownButton,
+  StopCountdownButton,
   TaskInput,
 } from './styles'
 import { useEffect, useState } from 'react'
@@ -111,7 +112,8 @@ interface ICycle {
   id: string // necessário para representar cada ciclo unicamente.
   task: string
   minutesAmount: number
-  startDate: Date // nativo do JavaScript!
+  startDate: Date // Date é um método nativo do JavaScript!
+  interruptedDate?: Date
 }
 
 export function Home() {
@@ -157,12 +159,22 @@ export function Home() {
    * Da forma atual, funciona, mas adicionar um novo ciclo após um pré-existente irá causar bugs.
    */
   useEffect(() => {
+    let interval: number
+
     if (activeCycle) {
-      setInterval(() => {
+      interval = setInterval(() => {
         setAmountSecondsPassed(
           differenceInSeconds(new Date(), activeCycle.startDate),
         )
       }, 1000)
+    }
+
+    /**
+     * Com o código acima, criamos um ciclo. Se cadastrarmos um novo ciclo, o anterior continua existindo, fazendo com que ambos os ciclos estejam contando ao mesmo tempo.
+     * Através da cleanup function, eu removo o ciclo anterior que já existia, antes de inserir o novo.
+     *  */
+    return () => {
+      clearInterval(interval)
     }
   }, [activeCycle])
 
@@ -191,8 +203,35 @@ export function Home() {
     setCycles((state) => [...state, newCycle])
     setActiveCycleId(id) // armazena o id, do ciclo ativo.
 
+    // Para quando eu criar um novo ciclo, limpar quantos segundos se passaram, resetando para zero.
+    setAmountSecondsPassed(0)
+
     // Automaticamente, limpa os campos para o valor original, presente em defaultValues.
     reset()
+  }
+
+  function handleInterruptCycle() {
+    /**
+     * 1) Eu vou percorrer todos os ciclos.
+     *
+     * 2) Para cada ciclo que estou percorrendo: se o ciclo for o ciclo ativo, eu vou retornar todos os dados do ciclo. Porém, também adiciono
+     * uma nova informação (InterruptedDate), como sendo a data atual.
+     *
+     * 3) Se não for o atual, retorno o ciclo sem alterações.
+     *
+     * É importante lembrar que nunca podemos alterar uma informação, sem seguir os princípios da imutabilidade.
+     */
+    setCycles(
+      cycles.map((cycle) => {
+        if (cycle.id === activeCycleId) {
+          return { ...cycle, interruptedDate: new Date() }
+        } else {
+          return cycle
+        }
+      }),
+    )
+
+    setActiveCycleId(null) // interrompe o ciclo atual.
   }
 
   // É interessante notar que, ao realizarmos um console.log em nossa aplicação, o log é exibido duas vezes:
@@ -207,7 +246,7 @@ export function Home() {
   const currentSeconds = activeCycle ? totalSeconds - amountSecondsPassed : 0
 
   // Calculando, a partir do total de segundos, quantos minutos eu tenho.
-  // Caso retorne um número quebrado (por exemplo, inseri 25 min e já se passou 1s, antes de eu pausar.), aproxima para baixo.
+  // Caso retorne um número quebrado (por exemplo, inseri 25 min e já se passou 1s, antes de eu pausar), aproxima para baixo.
   const minutesAmount = Math.floor(currentSeconds / 60)
 
   // "Ao dividir todos os segundos que tenho, por 60, quantos segundos sobram, que não cabem em mais uma divisão?"
@@ -218,6 +257,12 @@ export function Home() {
   // Eu quero que a variável de minutos sempre possua dois caracteres.
   const minutes = String(minutesAmount).padStart(2, '0')
   const seconds = String(secondsAmount).padStart(2, '0')
+
+  useEffect(() => {
+    if (activeCycle) {
+      document.title = `${minutes}:${seconds}`
+    }
+  }, [minutes, seconds, activeCycle])
 
   // formState permite retornar o estado do formulário, inclusive os erros quando existem.
   // console.log(formState.errors)
@@ -236,6 +281,7 @@ export function Home() {
             list="task-suggestions"
             type="text"
             placeholder="Dê um nome para o seu projeto"
+            disabled={!!activeCycle}
             // onChange={(e) => setTask(e.target.value.trim())} // atualiza o estado, a cada letra digitada ou removida.
 
             /**
@@ -271,6 +317,7 @@ export function Home() {
             step={5}
             min={5}
             {...register('minutesAmount', { valueAsNumber: true })}
+            disabled={!!activeCycle}
           />
 
           <span>minutos.</span>
@@ -290,15 +337,24 @@ export function Home() {
           <span>{seconds[1]}</span>
         </CountdownContainer>
 
-        {/* O "!task.length" (ou task === ') indica "somente quando o input estiver vazio". */}
         {/**
+         * O "!task.length" (ou task === ') indica "somente quando o input estiver vazio".
+         *
          * Agora, eu preciso habilitar o botão de submit, baseado se a informação de task estará preenchida ou não.
          * A função "watch" do useForm permite observar o campo desejdao.
          */}
-        <StartCountdownButton disabled={isSubmitDisabled} type="submit">
-          <Play size={24} />
-          Começar
-        </StartCountdownButton>
+
+        {activeCycle ? (
+          <StopCountdownButton onClick={handleInterruptCycle} type="button">
+            <HandPalm size={24} />
+            Interromper
+          </StopCountdownButton>
+        ) : (
+          <StartCountdownButton disabled={isSubmitDisabled} type="submit">
+            <Play size={24} />
+            Começar
+          </StartCountdownButton>
+        )}
       </form>
     </HomeContainer>
   )
