@@ -1,7 +1,14 @@
 import { HandPalm, Play } from 'phosphor-react'
 
+import {
+  HomeContainer,
+  StartCountdownButton,
+  StopCountdownButton,
+} from './styles'
+import { createContext, useState } from 'react'
+
 // Hooks são funções que possuem o prefixo, "use" e acoplam uma funcionalidade em um componente existente (ex.: useState, useEffect, useReducer, etc.).
-import { useForm } from 'react-hook-form'
+import { FormProvider, useForm } from 'react-hook-form'
 
 /**
  * - Zod é uma biblioteca de validação que possui integração com TypeScript.
@@ -14,20 +21,8 @@ import { useForm } from 'react-hook-form'
  *  */
 import * as zod from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
-
-import {
-  CountdownContainer,
-  FormContainer,
-  HomeContainer,
-  MinutesAmountInput,
-  Separator,
-  StartCountdownButton,
-  StopCountdownButton,
-  TaskInput,
-} from './styles'
-import { useEffect, useState } from 'react'
-
-import { differenceInSeconds } from 'date-fns'
+import { NewCycleForm } from './components/NewCycleForm'
+import { Countdown } from './components/Countdown'
 
 /**
  * Ao tratar de formulários no React (e qualquer outro cenário que envolve input do usuário), temos dois modelos de trabalho em nossa aplicação:
@@ -62,6 +57,42 @@ import { differenceInSeconds } from 'date-fns'
  *
  */
 
+/*
+ O valor que você define como o intervalo de tempo em um setInterval ou setTimeout não é preciso: é apenas uma estimativa.
+
+ Os seguintes fatores podem interferir:
+
+ - Aba do navegador em background;
+ - Lentidão do sistema;
+
+ Ou seja: 1s não é o valor exato. É perfeitamente possível que o timer não fique correto.
+
+ Portanto, outra forma de tratar do countdown: 
+
+ Ao criar o ciclo, onde criamos nossa interface Cycle (com id, task e minutesAmount), podemos adicionar um startDate.
+ Assim, temos a data em que ele se tornou ativo e, com base nessa data, podemos saber quanto tempo passou.
+*/
+interface ICycle {
+  id: string // necessário para representar cada ciclo unicamente.
+  task: string
+  minutesAmount: number
+  startDate: Date // Date é um método nativo do JavaScript!
+  interruptedDate?: Date
+  finishedDate?: Date
+}
+
+interface ICyclesContext {
+  activeCycle: ICycle | undefined // undefined pois, quando o usuário não iniciar nenhum ciclo, não será possível encontrar nenhum ciclo ativo.
+  activeCycleId: string | null
+  markCurrentCycleAsFinished: () => void
+  amountSecondsPassed: number
+  setSecondsPassed: (seconds: number) => void
+}
+
+// "activeCycle" é utilizado em ambos Countdown e NewCycleForm.
+// Lembrando que é a tipagem que permite a inteligência de reconhecer os valores a serem utilizados (exibidos com CTRL + espaço).
+export const CyclesContext = createContext({} as ICyclesContext)
+
 /**
  * Schema de validação, onde eu digo "de que forma eu quero validar os dados nos meus inputs", seguindo um formato.
  *
@@ -93,30 +124,6 @@ const newCycleFormValidationSchema = zod.object({
  */
 type NewCycleFormData = zod.infer<typeof newCycleFormValidationSchema>
 
-/*
- O valor que você define como o intervalo de tempo em um setInterval ou setTimeout não é preciso: é apenas uma estimativa.
-
- Os seguintes fatores podem interferir:
-
- - Aba do navegador em background;
- - Lentidão do sistema;
-
- Ou seja: 1s não é o valor exato. É perfeitamente possível que o timer não fique correto.
-
- Portanto, outra forma de tratar do countdown: 
-
- Ao criar o ciclo, onde criamos nossa interface Cycle (com id, task e minutesAmount), podemos adicionar um startDate.
- Assim, temos a data em que ele se tornou ativo e, com base nessa data, podemos saber quanto tempo passou.
-*/
-interface ICycle {
-  id: string // necessário para representar cada ciclo unicamente.
-  task: string
-  minutesAmount: number
-  startDate: Date // Date é um método nativo do JavaScript!
-  interruptedDate?: Date
-  finishedDate?: Date
-}
-
 export function Home() {
   // Lembrando de definir um valor inicial, com o mesmo tipo que pretendo usar!
   const [cycles, setCycles] = useState<ICycle[]>([])
@@ -131,78 +138,43 @@ export function Home() {
   // Retorna um objeto, com vários funções e variáveis disponíveis; portanto, destruturação é útil.
   // "useForm" cria um novo formulário em minha aplicação. "Register" é um método que irá adicionar um input ao nosso formulário, dizendo quais campos terei no mesmo.
   // Na função "useForm()", iremos passar um objeto de configuração; a intenção é "utilizar um resolver de validação, o zodResolver".
-  const { register, handleSubmit, watch, formState, reset } =
-    useForm<NewCycleFormData>({
-      /**
-       * Passo o schema como o formato a ser utilizado na validação.
-       * Então, se a validação funcionar, tudo ocorrerá normalmente. Porém, se houver algum erro, a execução será interrompida.
-       */
-      resolver: zodResolver(newCycleFormValidationSchema),
+  // const { register, handleSubmit, watch, formState, reset } =
+  const newCycleForm = useForm<NewCycleFormData>({
+    /**
+     * Passo o schema como o formato a ser utilizado na validação.
+     * Então, se a validação funcionar, tudo ocorrerá normalmente. Porém, se houver algum erro, a execução será interrompida.
+     */
+    resolver: zodResolver(newCycleFormValidationSchema),
 
-      // Definindo o valor inicial de cada campo.
-      // Ao usar um generic em "useForm", podemos fazer com que o intellisense da ferramenta reconheça os valores existentes (ao apertar CTRL + espaço).
-      defaultValues: {
-        task: '',
-        minutesAmount: 0,
-      },
-    })
+    // Definindo o valor inicial de cada campo.
+    // Ao usar um generic em "useForm", podemos fazer com que o intellisense da ferramenta reconheça os valores existentes (ao apertar CTRL + espaço).
+    defaultValues: {
+      task: '',
+      minutesAmount: 0,
+    },
+  })
+
+  const { handleSubmit, watch, formState, reset } = newCycleForm
 
   // Exibindo, em tela, qual o ciclo ativo; com base no id do ciclo ativo, percorrer todos os ciclos que tenho e retornar qual possui o mesmo id do ciclo ativo.
   // Ou seja: a variável percorre o vetor de ciclos, procurando por um ciclo em que o ID do mesmo seja igual ao ID do ciclo ativo.
   const activeCycle = cycles.find((cycle) => cycle.id === activeCycleId)
 
-  // Converte o número de minutos em meu ciclo, inserido pelo usuário, para segundos.
-  const totalSeconds = activeCycle ? activeCycle.minutesAmount * 60 : 0
+  function setSecondsPassed(seconds: number) {
+    setAmountSecondsPassed(seconds)
+  }
 
-  /**
-   * Criando o intervalo, para o intervalo de início e fim.
-   *
-   * O activeCycle é uma variável externa ao useEffect. Sempre que utilizarmos uma variável externa, obrigatoriamente devemos incluí-la como uma dependência do useEffect.
-   * Isso implica que: toda vez que a variável activeCycle muda, o código será executado novamente.
-   *
-   * Da forma atual, funciona, mas adicionar um novo ciclo após um pré-existente irá causar bugs.
-   */
-  useEffect(() => {
-    let interval: number
-
-    if (activeCycle) {
-      interval = setInterval(() => {
-        const secondsDifference = differenceInSeconds(
-          new Date(),
-          activeCycle.startDate,
-        )
-
-        // Digo que o ciclo foi encerrado.
-        if (secondsDifference >= totalSeconds) {
-          setCycles((state) =>
-            state.map((cycle) => {
-              if (cycle.id === activeCycleId) {
-                return { ...cycle, finishedDate: new Date() }
-              } else {
-                return cycle
-              }
-            }),
-          )
-
-          setAmountSecondsPassed(totalSeconds)
-
-          // Removendo o intervalo, para que a contagem seja interrompida.
-          clearInterval(interval)
+  function markCurrentCycleAsFinished() {
+    setCycles((state) =>
+      state.map((cycle) => {
+        if (cycle.id === activeCycleId) {
+          return { ...cycle, finishedDate: new Date() }
         } else {
-          // Só atualizo o total de segundos que passou, se eu ainda não "completei o total de segundos"; ou seja, se eu não encerrei um ciclo.
-          setAmountSecondsPassed(secondsDifference)
+          return cycle
         }
-      }, 1000)
-    }
-
-    /**
-     * Com o código acima, criamos um ciclo. Se cadastrarmos um novo ciclo, o anterior continua existindo, fazendo com que ambos os ciclos estejam contando ao mesmo tempo.
-     * Através da cleanup function, eu removo o ciclo anterior que já existia, antes de inserir o novo.
-     *  */
-    return () => {
-      clearInterval(interval)
-    }
-  }, [activeCycle, totalSeconds, activeCycleId])
+      }),
+    )
+  }
 
   function handleCreateNewCycle(data: NewCycleFormData) {
     console.log(data)
@@ -265,28 +237,6 @@ export function Home() {
   // Isso ocorre SOMENTE em desenvolvimento, não afeta produção; é relacionado ao StrictMode no React, definido no main.tsx.
   console.log(activeCycle)
 
-  // Quantos segundos já passaram.
-  const currentSeconds = activeCycle ? totalSeconds - amountSecondsPassed : 0
-
-  // Calculando, a partir do total de segundos, quantos minutos eu tenho.
-  // Caso retorne um número quebrado (por exemplo, inseri 25 min e já se passou 1s, antes de eu pausar), aproxima para baixo.
-  const minutesAmount = Math.floor(currentSeconds / 60)
-
-  // "Ao dividir todos os segundos que tenho, por 60, quantos segundos sobram, que não cabem em mais uma divisão?"
-  const secondsAmount = currentSeconds % 60
-
-  // Facilitando a exibição dos números.
-  // padStart é um método que preenche aquela string com algum caracter, de forma a atingir um tamanho específico.
-  // Eu quero que a variável de minutos sempre possua dois caracteres.
-  const minutes = String(minutesAmount).padStart(2, '0')
-  const seconds = String(secondsAmount).padStart(2, '0')
-
-  useEffect(() => {
-    if (activeCycle) {
-      document.title = `${minutes}:${seconds}`
-    }
-  }, [minutes, seconds, activeCycle])
-
   // formState permite retornar o estado do formulário, inclusive os erros quando existem.
   // console.log(formState.errors)
 
@@ -294,72 +244,35 @@ export function Home() {
   const task = watch('task')
   const isSubmitDisabled = !task
 
+  /**
+   * Prop Drilling
+   *
+   * É quando possuímos MUITAS propriedades APENAS para comunicação entre componentes; comum quando queremos passar propriedades para componentes filhos da árvore.
+   * Uma forma de resolver é utilizando a Context API: a mesma permite compartilharmos informações entre vários componentes, ao mesmo tempo.
+   */
   return (
     <HomeContainer>
       <form onSubmit={handleSubmit(handleCreateNewCycle)} action="">
-        <FormContainer>
-          <label htmlFor="task">Vou trabalhar em</label>
-          <TaskInput
-            id="task"
-            list="task-suggestions"
-            type="text"
-            placeholder="Dê um nome para o seu projeto"
-            disabled={!!activeCycle}
-            // onChange={(e) => setTask(e.target.value.trim())} // atualiza o estado, a cada letra digitada ou removida.
-
-            /**
-             * 1) O "register" é uma função, onde passo um parâmetro para a mesma.
-             *
-             * 2) Imagine que a função "register" recebe o nome do input e retorna alguns métodos.
-             * Tais métodos são os mesmos que utilizamos para trabalhar com inputs no JavaScript. Ou seja, onChange, onBlur, onFocus.
-             * Então, nós utilizamos o spread operator para transformar cada um dos métodos presentes do retorno da função "register", em uma propriedade pra meu input.
-             *
-             * Ou seja, seria quase a mesma coisa que inserir onChange ou outros métodos diretamente.
-             */
-            {...register('task')}
-            /**
-             * Boa prática: definir nosso value do input, com o valor do estado. Se nosso estado "task" mudar, por uma origem que não seja a digitação do usuário,
-             * eu também quero que o input seja atualizado visualmente, exibindo o novo valor.
-             **/
-            // value={task}
-          />
-
-          {/* Um datalist nada mais é do que uma lista de sugestões para um input. */}
-          <datalist id="task-suggestions">
-            <option value="Projeto 1" />
-            <option value="Projeto 2" />
-            <option value="Projeto 3" />
-            <option value="Banana" />
-          </datalist>
-
-          <label htmlFor="minutesAmount">durante</label>
-          <MinutesAmountInput
-            id="minutesAmount"
-            type="number"
-            placeholder="00"
-            step={5}
-            min={1}
-            {...register('minutesAmount', { valueAsNumber: true })}
-            disabled={!!activeCycle}
-          />
-
-          <span>minutos.</span>
-        </FormContainer>
-
-        <CountdownContainer>
-          <span>
-            {/* Pegando a primeira letra da string */}
-            {minutes[0]}
-          </span>
-          <span>{minutes[1]}</span>
-          <Separator>:</Separator>
-          <span>
-            {/* Pegando a primeira letra da string */}
-            {seconds[0]}
-          </span>
-          <span>{seconds[1]}</span>
-        </CountdownContainer>
-
+        <CyclesContext.Provider
+          value={{
+            activeCycle,
+            activeCycleId,
+            markCurrentCycleAsFinished,
+            amountSecondsPassed,
+            setSecondsPassed,
+          }}
+        >
+          {/**
+           * Com o spread operator abaixo, estou obtendo todas as propriedades do objeto "newCycleForm" e passo como uma propriedade para o componente "FormProvider".
+           * A intenção é reduzir repetição. Sem o spread operator, eu faria o seguinte:
+           *
+           * <FormProvider register={register} formState={formState}> e etc.
+           */}
+          <FormProvider {...newCycleForm}>
+            <NewCycleForm />
+          </FormProvider>
+          <Countdown />
+        </CyclesContext.Provider>
         {/**
          * O "!task.length" (ou task === ') indica "somente quando o input estiver vazio".
          *
