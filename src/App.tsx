@@ -1,16 +1,12 @@
 import { ThemeProvider } from 'styled-components'
-// import { Button } from './components/Button'
 import { GlobalStyle } from './global'
 import { Router } from './Router'
 
 import { BrowserRouter } from 'react-router-dom'
-
 import { defaultTheme } from './styles/themes/default'
-// import { Home } from './Home-explicacao-de-context'
+import { CyclesContextProvider } from './contexts/CyclesContext'
 
 export function App() {
-  // return <Home />
-
   return (
     // O tema somente será aplicado a componentes dentro do ThemeProvider.
     // É importante notar que o ThemeProvider é semelhante a um fragment, no quesito em que ele não imprime um elemento em tela.
@@ -24,7 +20,9 @@ export function App() {
 
       {/* É necessário que o BrowserRouter SEMPRE envolva nossas rotas. */}
       <BrowserRouter>
-        <Router />
+        <CyclesContextProvider>
+          <Router />
+        </CyclesContextProvider>
       </BrowserRouter>
 
       <GlobalStyle />
