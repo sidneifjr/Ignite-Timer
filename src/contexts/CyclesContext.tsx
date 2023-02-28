@@ -1,4 +1,4 @@
-import { createContext, useState } from 'react'
+import { createContext, ReactNode, useState } from 'react'
 
 /*
  O valor que você define como o intervalo de tempo em um setInterval ou setTimeout não é preciso: é apenas uma estimativa.
@@ -32,7 +32,7 @@ interface ICycle {
 }
 
 interface ICyclesContext {
-  cycles: Cycle[]
+  cycles: ICycle[]
   activeCycle: ICycle | undefined // undefined pois, quando o usuário não iniciar nenhum ciclo, não será possível encontrar nenhum ciclo ativo.
   activeCycleId: string | null
   markCurrentCycleAsFinished: () => void
