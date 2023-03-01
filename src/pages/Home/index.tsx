@@ -111,7 +111,12 @@ export function Home() {
     },
   })
 
-  const { handleSubmit, watch, formState /* reset */ } = newCycleForm
+  const { handleSubmit, watch, /* formState */ reset } = newCycleForm
+
+  function handleCreateNewCycle(data: NewCycleFormData) {
+    createNewCycle(data)
+    reset()
+  }
 
   // É interessante notar que, ao realizarmos um console.log em nossa aplicação, o log é exibido duas vezes:
   // 1 é proveniente do nosso arquivo e o outro é proveniente do "react_devtools_backend.js".
@@ -133,7 +138,7 @@ export function Home() {
    */
   return (
     <HomeContainer>
-      <form onSubmit={handleSubmit(createNewCycle)} action="">
+      <form onSubmit={handleSubmit(handleCreateNewCycle)} action="">
         {/**
          * Com o spread operator abaixo, estou obtendo todas as propriedades do objeto "newCycleForm" e passo como uma propriedade para o componente "FormProvider".
          * A intenção é reduzir repetição. Sem o spread operator, eu faria o seguinte:

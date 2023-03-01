@@ -108,9 +108,6 @@ export function CyclesContextProvider({ children }: ICyclesContextProvider) {
 
     // Para quando eu criar um novo ciclo, limpar quantos segundos se passaram, resetando para zero.
     setAmountSecondsPassed(0)
-
-    // Automaticamente, limpa os campos para o valor original, presente em defaultValues.
-    // reset()
   }
 
   function interruptCurrentCycle() {
