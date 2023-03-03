@@ -1,4 +1,17 @@
-import { createContext, ReactNode, useState } from 'react'
+/**
+ * Assim como o state, o Reducer serve para armazenar informações e alterá-las no futuro.
+ * Devemos ter preferência ao uso de Reducers quando queremos armazenar informações mais complexas, especialmente quando precisamos alterá-las.
+ *
+ * Por exemplo, alterar o array de ciclos em interruptCurrentCycle é um processo custoso, com muitas operações.
+ *
+ * "As alterações que eu faço em algum estado da minha aplicação, que geralmente dependem da versão anterior do mesmo e essa operações são normalmente
+ * onerosas/custosas (basntae cálculo ou operações), são casos em que fazem sentido criar um reducer. Pois assim conseguimos abstrair o nosso código e
+ * torná-lo mais simples de utilizar e também desacoplar essa lógica. Assim, se precisarmos interromper a ação do usuário, não seria necessário
+ * copiar o mesmo para vários arquivos da aplicação"
+ *
+ * "Com o reducer, teríamos um local fixo onde todas as operações poderiam acontecer dentro de um estado do nosso componente".
+ */
+import { createContext, ReactNode, useReducer, useState } from 'react'
 
 /*
  O valor que você define como o intervalo de tempo em um setInterval ou setTimeout não é preciso: é apenas uma estimativa.
@@ -52,7 +65,32 @@ interface ICyclesContextProvider {
 
 export function CyclesContextProvider({ children }: ICyclesContextProvider) {
   // Lembrando de definir um valor inicial, com o mesmo tipo que pretendo usar!
-  const [cycles, setCycles] = useState<ICycle[]>([])
+  /**
+   * Um useReducer recebe dois parâmetros: uma função e qual o valor da minha variável inicial de cycles.
+   *
+   * A função recebe dois parâmetros:
+   *
+   * 1) state (valor atual, em tempo real, da nossa variável cycles)
+   * 2) action (qual ação o usuário pretende realizar para alteração dentro de nossa variável).
+   * É algo único que indica a ação que o usuário quer fazer para alterar nosso estado.
+   *
+   * Por exemplo: posso ter uma ação de interrupt, para interromper meu ciclo. Uma ação de add, para adicionar ao meu ciclo.
+   * Ou seja, são ações que o usuário pode realizar para alterar nosso estado.
+   *
+   * O setCycles será a função que irá disparar a ação, ou seja, não é mais a função que altera diretamente o valor de cycles.
+   * Então, é mais apropriado alterarmos o nome da função para "dispatch". Pois estamos disparando uma ação.
+   *  */
+  const [cycles, dispatch] = useReducer((state: ICycle[], action: any) => {
+    /**
+     * Se o action.type for igual ao valor definido, ao invés de simplesmente retornar o state sem alterações,
+     * irei retornar um novo array copiando meu state e adicionando, ao final, meu valor passado ao payload (no caso, newCycle será a variável repassada  e adicionada).
+     */
+    if (action.type === 'ADD_NEW_CYCLE') {
+      return [...state, action.payload.newCycle]
+    }
+
+    return state
+  }, [])
 
   // Armazenando o id do ciclo ativo, em um estado.
   // É importante considerar que, ao iniciar a aplicação pela primeira vez, eu posso ter nenhum ciclo cadastrado. Ou seja, o id do ciclo ativo pode ser nulo.
@@ -70,15 +108,22 @@ export function CyclesContextProvider({ children }: ICyclesContextProvider) {
   }
 
   function markCurrentCycleAsFinished() {
-    setCycles((state) =>
-      state.map((cycle) => {
-        if (cycle.id === activeCycleId) {
-          return { ...cycle, finishedDate: new Date() }
-        } else {
-          return cycle
-        }
-      }),
-    )
+    dispatch({
+      type: 'MARK_CURRENT_CYCLE_AS_FINISHED',
+      payload: {
+        activeCycleId,
+      },
+    })
+
+    // setCycles((state) =>
+    //   state.map((cycle) => {
+    //     if (cycle.id === activeCycleId) {
+    //       return { ...cycle, finishedDate: new Date() }
+    //     } else {
+    //       return cycle
+    //     }
+    //   }),
+    // )
   }
 
   function createNewCycle(data: CreateCycleData) {
@@ -103,7 +148,27 @@ export function CyclesContextProvider({ children }: ICyclesContextProvider) {
      *
      * Assim: eu pego o estado atual da minha variável de ciclos, copio o estado atual e adiciono o novo ciclo no final.
      **/
-    setCycles((state) => [...state, newCycle])
+    // setCycles((state) => [...state, newCycle])
+
+    /**
+     * Dentro de nosso dispatch, eu preciso enviar algum informação que me permite distinguir uma ação da outra.
+     * O valor que eu passar para o meu dispatch, ocupará o lugar da action.
+     *
+     * Por exemplo, se eu usar "dispatch(newCycle)", eu terei o novo ciclo que quero adicionar.
+     *
+     * Mas e se também usar um "dispatch(activeCycleId)" dentro de interruptCurrentCycle, eu estaria fazendo com que minha função recebesse ambos
+     * os valores, porém sem ter uma forma de distinguir quando eu estaria adicionando um novo ciclo ou quando estaria interrompendo.
+     *
+     * Então, ao invés de enviar somente a ação "crua", eu envio um objeto com um 'type' (onde digo qual ação eu quero realizar)
+     * e um payload, onde envio os dados do meu novo ciclo.
+     */
+    dispatch({
+      type: 'ADD_NEW_CYCLE',
+      payload: {
+        newCycle,
+      },
+    })
+
     setActiveCycleId(id) // armazena o id, do ciclo ativo.
 
     // Para quando eu criar um novo ciclo, limpar quantos segundos se passaram, resetando para zero.
@@ -111,6 +176,13 @@ export function CyclesContextProvider({ children }: ICyclesContextProvider) {
   }
 
   function interruptCurrentCycle() {
+    dispatch({
+      type: 'INTERRUPT_CURRENT_CYCLE',
+      payload: {
+        activeCycleId,
+      },
+    })
+
     /**
      * 1) Eu vou percorrer todos os ciclos.
      *
@@ -121,15 +193,15 @@ export function CyclesContextProvider({ children }: ICyclesContextProvider) {
      *
      * É importante lembrar que nunca podemos alterar uma informação, sem seguir os princípios da imutabilidade.
      */
-    setCycles((state) =>
-      state.map((cycle) => {
-        if (cycle.id === activeCycleId) {
-          return { ...cycle, interruptedDate: new Date() }
-        } else {
-          return cycle
-        }
-      }),
-    )
+    // setCycles((state) =>
+    //   state.map((cycle) => {
+    //     if (cycle.id === activeCycleId) {
+    //       return { ...cycle, interruptedDate: new Date() }
+    //     } else {
+    //       return cycle
+    //     }
+    //   }),
+    // )
 
     setActiveCycleId(null) // interrompe o ciclo atual.
   }
