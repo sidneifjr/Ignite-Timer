@@ -63,6 +63,11 @@ interface ICyclesContextProvider {
   children: ReactNode // sempre usado para "children" de um componente. Representa "qualquer JSX ou HTML válido".
 }
 
+interface CyclesState {
+  cycles: ICycle[]
+  activeCycleId: string | null
+}
+
 export function CyclesContextProvider({ children }: ICyclesContextProvider) {
   // Lembrando de definir um valor inicial, com o mesmo tipo que pretendo usar!
   /**
@@ -80,24 +85,68 @@ export function CyclesContextProvider({ children }: ICyclesContextProvider) {
    * O setCycles será a função que irá disparar a ação, ou seja, não é mais a função que altera diretamente o valor de cycles.
    * Então, é mais apropriado alterarmos o nome da função para "dispatch". Pois estamos disparando uma ação.
    *  */
-  const [cycles, dispatch] = useReducer((state: ICycle[], action: any) => {
-    /**
-     * Se o action.type for igual ao valor definido, ao invés de simplesmente retornar o state sem alterações,
-     * irei retornar um novo array copiando meu state e adicionando, ao final, meu valor passado ao payload (no caso, newCycle será a variável repassada  e adicionada).
-     */
-    if (action.type === 'ADD_NEW_CYCLE') {
-      return [...state, action.payload.newCycle]
-    }
 
-    return state
-  }, [])
+  /**
+   * Quando utilizamos um reducer, não há obrigatoriedade de salvar somente uma informação dentro do mesmo (no caso, a lista de ciclos).
+   * Eu posso salvar várias informações.
+   *
+   *
+   */
+  const [cyclesState, dispatch] = useReducer(
+    (state: CyclesState, action: any) => {
+      /**
+       * Se o action.type for igual ao valor definido, ao invés de simplesmente retornar o state sem alterações,
+       * irei retornar um novo array copiando meu state e adicionando, ao final, meu valor passado ao payload (no caso, newCycle será a variável repassada  e adicionada).
+       */
+      switch (action.type) {
+        case 'ADD_NEW_CYCLE':
+          return {
+            ...state,
+            cycles: [...state.cycles, action.payload.newCycle],
+            activeCycleId: action.payload.newCycle.id,
+          }
 
-  // Armazenando o id do ciclo ativo, em um estado.
-  // É importante considerar que, ao iniciar a aplicação pela primeira vez, eu posso ter nenhum ciclo cadastrado. Ou seja, o id do ciclo ativo pode ser nulo.
-  const [activeCycleId, setActiveCycleId] = useState<string | null>(null)
+        case 'INTERRUPT_CURRENT_CYCLE':
+          return {
+            ...state,
+            cycles: state.cycles.map((cycle) => {
+              if (cycle.id === state.activeCycleId) {
+                return { ...cycle, interruptedDate: new Date() }
+              } else {
+                return cycle
+              }
+            }),
+            activeCycleId: null,
+          }
+
+        case 'MARK_CURRENT_CYCLE_AS_FINISHED':
+          return {
+            ...state,
+            cycles: state.cycles.map((cycle) => {
+              if (cycle.id === state.activeCycleId) {
+                return { ...cycle, finishedDate: new Date() }
+              } else {
+                return cycle
+              }
+            }),
+            activeCycleId: null,
+          }
+
+        default:
+          return state
+      }
+    },
+    // Definindo valores iniciais para nosso estado.
+    {
+      cycles: [],
+      activeCycleId: null,
+    },
+  )
 
   // Armazena a quantidade de segundos que se passaram, desde que o ciclo foi criado.
   const [amountSecondsPassed, setAmountSecondsPassed] = useState(0)
+
+  const { cycles, activeCycleId } = cyclesState
 
   // Exibindo, em tela, qual o ciclo ativo; com base no id do ciclo ativo, percorrer todos os ciclos que tenho e retornar qual possui o mesmo id do ciclo ativo.
   // Ou seja: a variável percorre o vetor de ciclos, procurando por um ciclo em que o ID do mesmo seja igual ao ID do ciclo ativo.
@@ -169,8 +218,6 @@ export function CyclesContextProvider({ children }: ICyclesContextProvider) {
       },
     })
 
-    setActiveCycleId(id) // armazena o id, do ciclo ativo.
-
     // Para quando eu criar um novo ciclo, limpar quantos segundos se passaram, resetando para zero.
     setAmountSecondsPassed(0)
   }
@@ -202,8 +249,6 @@ export function CyclesContextProvider({ children }: ICyclesContextProvider) {
     //     }
     //   }),
     // )
-
-    setActiveCycleId(null) // interrompe o ciclo atual.
   }
 
   return (
